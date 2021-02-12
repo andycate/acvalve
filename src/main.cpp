@@ -55,9 +55,6 @@ void setup() {
   setpoint = 0.0;
   speed = 0.0;
   integrator = 0.0;
-
-  analogWriteFrequency(STEP_PIN, 0.0);
-  analogWrite(STEP_PIN, 127); // half duty cycle by default
 }
 
 void loop() {
@@ -68,11 +65,20 @@ void loop() {
   curr_time = micros();
   t_diff = (float) (curr_time - last_time);
   last_time = curr_time;
-  p_diff = pressure - last_pressure;
+  p_diff = last_pressure - pressure;
   integrator += p_diff / t_diff;
 
   speed = CONST_P * p_diff + CONST_I * integrator + CONST_D * p_diff / t_diff;
-  if(speed < 0) digitalWriteFast(DIR_PIN, LOW);
-  else digitalWriteFast(DIR_PIN, HIGH);
-  analogWriteFrequency(STEP_PIN, speed);
+  if(speed == 0.0) m_period = 0;
+  else m_period = abs((uint32_t) ((1.0 / speed) * 1000000.0)) / 2;
+
+  // motor control
+  now = micros();
+  if(now - m_last_step > m_period && m_period != 0) {
+    if(speed < 0) digitalWriteFast(DIR_PIN, LOW);
+    else digitalWriteFast(DIR_PIN, HIGH);
+    m_last_state = m_last_state ? 0 : 1;
+    digitalWriteFast(STEP_PIN, m_last_state);
+    m_last_step = now;
+  }
 }
